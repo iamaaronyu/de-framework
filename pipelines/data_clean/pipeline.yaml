@@ -1,0 +1,22 @@
+name: "data-clean"
+version: "v1.0.0"
+description: "General-purpose data cleaning pipeline — dedup, language filter, quality filter"
+
+stages:
+  - id: data_load
+    type: data_loader
+    module: "pipelines.data_clean.stages.clean"
+    class: "DataLoadStage"
+    config:
+      file_format: "jsonl"
+
+  - id: clean
+    type: cpu_transform
+    module: "pipelines.data_clean.stages.clean"
+    class: "CleanStage"
+    depends_on: [data_load]
+    config:
+      dedup: true
+      min_length: 20
+      max_length: 8192
+      lang_filter: ["zh", "en"]

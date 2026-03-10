@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest tests/ -v --tb=short
+
+  release:
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Extract version from pyproject.toml
+        id: version
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build archive
+        run: |
+          PIPELINE_NAME=$(python -c "import yaml; print(yaml.safe_load(open('pipeline.yaml'))['name'])")
+          VERSION=${{ steps.version.outputs.version }}
+          mkdir -p dist/release/${PIPELINE_NAME}/${VERSION}
+          tar -czf dist/release/${PIPELINE_NAME}/${VERSION}/code.tar.gz \
+            --exclude='.git' \
+            --exclude='dist' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            .
+          SHA256=$(sha256sum dist/release/${PIPELINE_NAME}/${VERSION}/code.tar.gz | awk '{print $1}')
+          COMMIT=$(git rev-parse HEAD)
+          jq -n \
+            --arg pipeline "$PIPELINE_NAME" \
+            --arg version "$VERSION" \
+            --arg sha256 "$SHA256" \
+            --arg commit "$COMMIT" \
+            --arg build_time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{pipeline: $pipeline, version: $version, sha256: $sha256, commit_hash: $commit, build_time: $build_time}' \
+            > dist/release/${PIPELINE_NAME}/${VERSION}/manifest.json
+
+      - name: Upload to object storage
+        env:
+          OBS_ACCESS_KEY: ${{ secrets.OBS_ACCESS_KEY }}
+          OBS_SECRET_KEY: ${{ secrets.OBS_SECRET_KEY }}
+          OBS_BUCKET: pipeline-release-bucket
+          OBS_ENDPOINT: obs.example.com
+        run: |
+          # Replace with actual OBS CLI / s3cmd / aws-cli upload
+          echo "Upload dist/release/ to obs://${OBS_BUCKET}/"
+          # aws s3 sync dist/release/ s3://${OBS_BUCKET}/ --endpoint-url https://${OBS_ENDPOINT}
