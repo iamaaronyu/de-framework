@@ -1,1 +1,1 @@
-"""Code download service — serves versioned pipeline archives from object storage."""
+"""代码下载服务 — 从对象存储提供版本化流水线归档包。"""

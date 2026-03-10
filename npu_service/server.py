@@ -1,11 +1,11 @@
-"""NPU Inference Service — FastAPI application.
+"""NPU 推理服务 — FastAPI 应用。
 
-Exposes:
-  POST /v1/inference          — synchronous single-item inference
-  POST /v1/inference/batch    — batch inference
-  GET  /v1/models             — list available models
-  GET  /v1/health             — health check
-  GET  /metrics               — Prometheus metrics
+对外暴露接口：
+  POST /v1/inference          — 同步单条推理
+  POST /v1/inference/batch    — 批量推理
+  GET  /v1/models             — 查询可用模型列表
+  GET  /v1/health             — 健康检查
+  GET  /metrics               — Prometheus 指标
 """
 
 from __future__ import annotations
@@ -25,35 +25,35 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="NPU Inference Service", version="1.0.0")
 
 # ---------------------------------------------------------------------------
-# Prometheus metrics
+# Prometheus 指标
 # ---------------------------------------------------------------------------
 REQUEST_COUNT = Counter(
     "npu_inference_requests_total",
-    "Total inference requests",
+    "推理请求总数",
     ["model", "status"],
 )
 REQUEST_LATENCY = Histogram(
     "npu_inference_latency_seconds",
-    "Inference request latency",
+    "推理请求耗时",
     ["model"],
     buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
 )
 BATCH_SIZE_HIST = Histogram(
     "npu_inference_batch_size",
-    "Number of items per batch request",
+    "每次批量推理的请求条数",
     buckets=[1, 4, 8, 16, 32, 64, 128, 256],
 )
 
 # ---------------------------------------------------------------------------
-# Registered models (production: loaded from model registry)
+# 已注册模型（生产环境从模型注册中心动态加载）
 # ---------------------------------------------------------------------------
 AVAILABLE_MODELS: dict[str, Any] = {
-    "llm-v2": {"description": "LLM distillation model v2", "max_batch_size": 64},
-    "llm-v1": {"description": "LLM distillation model v1 (legacy)", "max_batch_size": 32},
+    "llm-v2": {"description": "LLM 蒸馏模型 v2", "max_batch_size": 64},
+    "llm-v1": {"description": "LLM 蒸馏模型 v1（历史版本）", "max_batch_size": 32},
 }
 
 # ---------------------------------------------------------------------------
-# Request / Response schemas
+# 请求 / 响应数据模型
 # ---------------------------------------------------------------------------
 
 
@@ -74,7 +74,7 @@ class BatchInferenceRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Routes
+# 路由
 # ---------------------------------------------------------------------------
 
 
@@ -108,7 +108,7 @@ def metrics() -> Response:
 
 
 # ---------------------------------------------------------------------------
-# Core inference logic
+# 核心推理逻辑
 # ---------------------------------------------------------------------------
 
 
@@ -131,7 +131,7 @@ def _run_inference(model: str, inputs: list[dict[str, Any]]) -> InferenceRespons
         status = "success"
     except Exception as exc:
         REQUEST_COUNT.labels(model=model, status="error").inc()
-        logger.exception("Inference backend error for model %s", model)
+        logger.exception("模型 %s 推理后端异常", model)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     latency_ms = (time.monotonic() - t0) * 1000
@@ -142,6 +142,6 @@ def _run_inference(model: str, inputs: list[dict[str, Any]]) -> InferenceRespons
 
 
 def _call_npu_backend(model: str, inputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Placeholder — replace with real NPU SDK / triton client call."""
-    # In production: call Triton Inference Server or vendor NPU SDK here
+    """占位实现 — 生产环境替换为真实 NPU SDK / Triton 客户端调用。"""
+    # 生产环境：在此调用 Triton Inference Server 或厂商 NPU SDK
     return [{"input_id": i, "output": f"[{model}] result for item {i}"} for i, _ in enumerate(inputs)]

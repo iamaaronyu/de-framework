@@ -1,4 +1,4 @@
-"""Shared data models for the execution framework."""
+"""执行框架共享数据模型。"""
 
 from __future__ import annotations
 

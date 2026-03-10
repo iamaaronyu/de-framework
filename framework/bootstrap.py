@@ -1,12 +1,12 @@
-"""Task Bootstrap — entry point for the execution framework.
+"""任务引导程序 — 执行框架的统一入口。
 
-Execution flow:
-  1. Parse job parameters
-  2. Download versioned pipeline code via code-download service
-  3. Load pipeline.yaml from downloaded code
-  4. Build DAG execution order
-  5. Execute each stage sequentially, reporting progress
-  6. Flush metadata to DataHub
+执行流程：
+  1. 解析任务参数
+  2. 通过代码下载服务拉取指定版本的流水线代码
+  3. 从下载的代码中加载 pipeline.yaml
+  4. 构建 DAG 拓扑执行顺序
+  5. 按顺序执行各 Stage，实时上报进度
+  6. 任务结束后将元数据写入 DataHub
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Environment variable keys (injected by Yundao / K8s)
+# 环境变量键名（由云道平台 / K8s 注入）
 ENV_YUNDAO_URL = "YUNDAO_URL"
 ENV_NPU_URL = "NPU_SERVICE_URL"
 ENV_CODE_DOWNLOAD_URL = "CODE_DOWNLOAD_URL"
@@ -44,12 +44,12 @@ def _download_pipeline_code(
     version: str,
     work_dir: Path,
 ) -> Path:
-    """Download and extract pipeline code; return extraction path."""
+    """下载并解压流水线代码，返回解压目录路径。"""
     import httpx
 
     dest = work_dir / pipeline_name / version
     if dest.exists():
-        logger.info("Cache hit: %s %s already at %s", pipeline_name, version, dest)
+        logger.info("缓存命中：%s %s 已存在于 %s", pipeline_name, version, dest)
         return dest
 
     dest.mkdir(parents=True, exist_ok=True)
@@ -57,7 +57,7 @@ def _download_pipeline_code(
         f"{download_url.rstrip('/')}/code/download"
         f"?pipeline={pipeline_name}&version={version}"
     )
-    logger.info("Downloading pipeline code from %s", url)
+    logger.info("正在从 %s 下载流水线代码", url)
     with httpx.stream("GET", url, timeout=300) as resp:
         resp.raise_for_status()
         archive = dest / "code.tar.gz"
@@ -70,7 +70,7 @@ def _download_pipeline_code(
     with tarfile.open(archive, "r:gz") as tar:
         tar.extractall(path=dest)
     archive.unlink()
-    logger.info("Pipeline code extracted to %s", dest)
+    logger.info("流水线代码已解压至 %s", dest)
     return dest
 
 
@@ -105,24 +105,24 @@ def run_job(
         t_start = time.monotonic()
 
         try:
-            # Step 1: download code (skip in dev_mode — use local source tree)
+            # 步骤 1：下载代码（dev_mode 时跳过，直接使用本地源码）
             if dev_mode:
                 code_dir = Path(__file__).parent.parent
-                logger.info("Dev mode: using local source at %s", code_dir)
+                logger.info("开发模式：使用本地源码 %s", code_dir)
             else:
                 code_dir = _download_pipeline_code(
                     download_url, pipeline_name, pipeline_version, work_dir
                 )
                 sys.path.insert(0, str(code_dir))
 
-            # Step 2: load and validate pipeline config
+            # 步骤 2：加载并校验流水线配置
             pipeline_yaml = code_dir / "pipeline.yaml"
             pipeline_cfg = load_pipeline_config(str(pipeline_yaml))
 
-            # Step 3: topological sort
+            # 步骤 3：拓扑排序
             ordered_stages = build_execution_order(pipeline_cfg.stages)
 
-            # Step 4: execute stages
+            # 步骤 4：按序执行各 Stage
             runner = StageRunner(max_retries=2)
             npu = NPUInvoker(npu_url)
             stage_results = []
@@ -140,7 +140,7 @@ def run_job(
                 reporter.report_stage_result(result)
 
                 if result.status == StageStatus.FAILED:
-                    logger.error("Stage '%s' failed; aborting job", stage_cfg.id)
+                    logger.error("Stage '%s' 执行失败，终止任务", stage_cfg.id)
                     break
 
             npu.close()
@@ -152,7 +152,7 @@ def run_job(
             )
 
         except Exception as exc:
-            logger.exception("Unhandled error in job %s", job_id)
+            logger.exception("任务 %s 发生未处理异常", job_id)
             overall_status = JobStatus.FAILED
             stage_results = []
             error_msg = str(exc)
@@ -204,14 +204,14 @@ def main() -> None:
 
     if result.status == JobStatus.SUCCESS:
         logger.info(
-            "Job %s completed successfully in %.2fs. Records out: %d",
+            "任务 %s 执行成功，耗时 %.2fs，输出记录数：%d",
             result.job_id,
             result.duration_seconds,
             result.total_records_out,
         )
         sys.exit(0)
     else:
-        logger.error("Job %s failed: %s", result.job_id, result.error)
+        logger.error("任务 %s 执行失败：%s", result.job_id, result.error)
         sys.exit(1)
 
 

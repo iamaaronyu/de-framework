@@ -1,4 +1,4 @@
-"""Stage execution with retry and error isolation."""
+"""Stage 执行引擎，支持重试与错误隔离。"""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class BaseStage(ABC):
-    """All pipeline stages must subclass this."""
+    """所有流水线 Stage 必须继承此基类。"""
 
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
@@ -22,14 +22,14 @@ class BaseStage(ABC):
     def process(
         self, inputs: Iterator[dict[str, Any]], ctx: JobContext
     ) -> Iterator[dict[str, Any]]:
-        """Consume *inputs* and yield output records."""
+        """消费上游数据 *inputs*，yield 处理后的记录。"""
 
     def validate_config(self) -> None:
-        """Override to validate self.config at startup."""
+        """子类可重写此方法，在启动时校验 self.config。"""
 
 
 class StageRunner:
-    """Executes a single stage, collecting metrics and handling errors."""
+    """执行单个 Stage，采集指标并处理异常。"""
 
     def __init__(self, max_retries: int = 1) -> None:
         self._max_retries = max_retries
@@ -41,7 +41,7 @@ class StageRunner:
         upstream_data: list[dict[str, Any]],
         ctx: JobContext,
     ) -> tuple[StageResult, list[dict[str, Any]]]:
-        """Run *stage*, return (result, output_records)."""
+        """执行 *stage*，返回 (StageResult, 输出记录列表)。"""
         attempt = 0
         last_error: Exception | None = None
 
@@ -49,7 +49,7 @@ class StageRunner:
             if attempt > 0:
                 wait = 2**attempt
                 logger.info(
-                    "Retrying stage '%s' (attempt %d/%d) after %ds",
+                    "重试 Stage '%s'（第 %d/%d 次）等待 %ds",
                     stage_id,
                     attempt,
                     self._max_retries,
@@ -61,7 +61,7 @@ class StageRunner:
                 return self._execute(stage, stage_id, upstream_data, ctx)
             except Exception as exc:
                 last_error = exc
-                logger.warning("Stage '%s' attempt %d failed: %s", stage_id, attempt, exc)
+                logger.warning("Stage '%s' 第 %d 次执行失败：%s", stage_id, attempt, exc)
                 attempt += 1
 
         result = StageResult(
@@ -92,7 +92,7 @@ class StageRunner:
             duration_seconds=round(duration, 3),
         )
         logger.info(
-            "Stage '%s' succeeded in %.2fs: in=%d out=%d filtered=%d",
+            "Stage '%s' 执行成功，耗时 %.2fs：输入=%d 输出=%d 过滤=%d",
             stage_id,
             duration,
             result.records_in,

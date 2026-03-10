@@ -1,4 +1,4 @@
-"""Data cleaning stages."""
+"""数据清洗流水线各 Stage 实现。"""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataLoadStage(BaseStage):
-    """Load JSONL records from input_path."""
+    """从 input_path 加载 JSONL 记录。"""
 
     def process(
         self, inputs: Iterator[dict[str, Any]], ctx: JobContext
@@ -35,7 +35,7 @@ class DataLoadStage(BaseStage):
 
 
 class CleanStage(BaseStage):
-    """Dedup, length filter, and language filter."""
+    """去重、长度过滤与语种白名单过滤。"""
 
     def process(
         self, inputs: Iterator[dict[str, Any]], ctx: JobContext

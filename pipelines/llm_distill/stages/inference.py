@@ -1,4 +1,4 @@
-"""NPU inference stage for the LLM distillation pipeline."""
+"""LLM 蒸馏流水线 — NPU 推理 Stage。"""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class InferenceStage(BaseStage):
-    """Calls the NPU inference API in mini-batches and attaches results."""
+    """按 mini-batch 调用 NPU 推理 API，并将推理结果附加到原始记录上。"""
 
     def __init__(self, config: dict[str, Any], npu_invoker: NPUInvoker) -> None:
         super().__init__(config)
@@ -43,8 +43,8 @@ class InferenceStage(BaseStage):
         try:
             outputs = self._npu.infer_batch(model, npu_inputs, batch_size=len(npu_inputs))
         except NPUInvokerError as exc:
-            # Mark records as failed rather than dropping them
-            logger.error("NPU inference failed for batch of %d: %s", len(batch), exc)
+            # 推理失败时标记记录而非直接丢弃，保留问题记录便于后续统计
+            logger.error("NPU 推理失败，batch 大小 %d：%s", len(batch), exc)
             return [
                 {**r, "npu_output": None, "npu_error": str(exc), "inference_ok": False}
                 for r in batch
@@ -53,5 +53,5 @@ class InferenceStage(BaseStage):
         enriched = []
         for record, output in zip(batch, outputs, strict=False):
             enriched.append({**record, "npu_output": output, "inference_ok": True})
-        logger.debug("Inferred batch of %d records with model '%s'", len(batch), model)
+        logger.debug("模型 '%s' 完成 %d 条记录的推理", model, len(batch))
         return enriched

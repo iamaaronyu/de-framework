@@ -1,4 +1,4 @@
-"""Postprocessing and output writing stage for the LLM distillation pipeline."""
+"""LLM 蒸馏流水线 — 后处理与结果写出 Stage。"""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class PostprocessStage(BaseStage):
-    """Filters low-quality outputs and writes distilled records to output_path."""
+    """过滤低质量推理结果，将合格的蒸馏记录写入 output_path。"""
 
     def process(
         self, inputs: Iterator[dict[str, Any]], ctx: JobContext
@@ -64,7 +64,7 @@ class PostprocessStage(BaseStage):
                 written += 1
 
         logger.info(
-            "PostprocessStage complete: written=%d filtered=%d to %s",
+            "PostprocessStage 完成：写出=%d 过滤=%d，输出文件：%s",
             written,
             filtered,
             out_file,

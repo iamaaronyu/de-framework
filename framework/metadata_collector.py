@@ -1,4 +1,4 @@
-"""Metadata collection and reporting to DataHub."""
+"""流水线执行元数据采集与上报至 DataHub。"""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ class LineageEdge:
 
 
 class MetadataCollector:
-    """Collects pipeline execution metadata and writes to DataHub."""
+    """采集流水线执行元数据并写入 DataHub。"""
 
     def __init__(self, datahub_server: str, pipeline_name: str, pipeline_version: str) -> None:
         self._server = datahub_server
@@ -28,7 +28,7 @@ class MetadataCollector:
         self._lineage_edges: list[LineageEdge] = []
 
     # ------------------------------------------------------------------
-    # Metric accumulation
+    # 指标累积
     # ------------------------------------------------------------------
 
     def record_metric(self, key: str, value: Any) -> None:
@@ -43,20 +43,20 @@ class MetadataCollector:
         )
 
     # ------------------------------------------------------------------
-    # Flush to DataHub
+    # 写入 DataHub
     # ------------------------------------------------------------------
 
     def flush(self, job_id: str) -> None:
-        """Write all collected metadata to DataHub."""
+        """将所有已采集的元数据批量写入 DataHub。"""
         try:
             self._write_run_event(job_id)
             self._write_lineage()
         except Exception as exc:
-            # Metadata reporting failure must not fail the job
-            logger.warning("Metadata flush failed for job %s: %s", job_id, exc)
+            # 元数据上报失败不能导致任务失败
+            logger.warning("任务 %s 元数据写入失败：%s", job_id, exc)
 
     # ------------------------------------------------------------------
-    # Internal
+    # 内部方法
     # ------------------------------------------------------------------
 
     def _write_run_event(self, job_id: str) -> None:
@@ -77,14 +77,14 @@ class MetadataCollector:
                 ),
             )
             emitter.emit(run_event)
-            logger.info("DataHub run event emitted for job %s", job_id)
+            logger.info("DataHub 运行事件已上报，任务 %s", job_id)
         except ImportError:
             logger.warning(
-                "datahub-ingestion not installed; skipping metadata emission. "
-                "Install with: pip install datahub-ingestion"
+                "datahub-ingestion 未安装，跳过元数据上报。"
+                "请执行：pip install datahub-ingestion"
             )
         except Exception as exc:
-            logger.warning("Failed to emit DataHub run event: %s", exc)
+            logger.warning("DataHub 运行事件上报失败：%s", exc)
 
     def _write_lineage(self) -> None:
         if not self._lineage_edges:
@@ -108,16 +108,14 @@ class MetadataCollector:
                         "aspect": lineage,
                     }
                 )
-            logger.info("DataHub lineage emitted: %d edges", len(self._lineage_edges))
+            logger.info("DataHub 血缘关系已上报：%d 条边", len(self._lineage_edges))
         except ImportError:
-            logger.warning(
-                "datahub-ingestion not installed; skipping lineage emission."
-            )
+            logger.warning("datahub-ingestion 未安装，跳过血缘上报。")
         except Exception as exc:
-            logger.warning("Failed to emit DataHub lineage: %s", exc)
+            logger.warning("DataHub 血缘上报失败：%s", exc)
 
     @staticmethod
     def _path_to_urn(path: str) -> str:
-        """Convert an OBS/S3 path to a DataHub dataset URN."""
+        """将 OBS/S3 路径转换为 DataHub dataset URN 格式。"""
         clean = path.replace("obs://", "").replace("s3://", "")
         return f"urn:li:dataset:(urn:li:dataPlatform:obs,{clean},PROD)"
